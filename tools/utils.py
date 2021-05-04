@@ -1,4 +1,6 @@
 import math
+from pathlib import Path
+import pickle
 import random
 import re
 from urllib.request import urlopen
@@ -94,22 +96,27 @@ def data_reader(dataset_use):
 
     file_name = "https://archive.ics.uci.edu/ml/machine-learning-databases/{df}/{df}"
 
-    content = []
-    for suf in suffices[dataset_use]:
-        data = file_name.format(df=dataset_use) + suf
+    if Path(f"data/{dataset_use}").exists():
+        with open(f"data/{dataset_use}","b") as f:
+            content = pickle.load(f)
+    else:
+        content = []
+        for suf in suffices[dataset_use]:
+            data = file_name.format(df=dataset_use) + suf
 
-        req = urlopen(data)
-        for line in req.readlines():
-            content.append(
-                [
-                    item
-                    for item in re.sub("\s+", ",", line.decode("utf-8").rstrip()).split(
-                        ","
-                    )
-                    if item
-                ]
-            )
-
+            req = urlopen(data)
+            for line in req.readlines():
+                content.append(
+                    [
+                        item
+                        for item in re.sub("\s+", ",", line.decode("utf-8").rstrip()).split(
+                            ","
+                        )
+                        if item
+                    ]
+                )
+        with open(f"data/{dataset_use}", "b") as f:
+            pickle.dump(f)
     return content
 
 
@@ -119,7 +126,12 @@ def get_bandit(dataset_use):
 
     """
     # set location of file
-    content = data_reader(dataset_use)
+        with open(f"data/{dataset_use}", "r") as f:
+            content = f.readlines()
+    else:
+        content = data_reader(dataset_use)
+        with open(f"data/{dataset_use}", "w") as f:
+            f.writelines(content)
 
     df = pd.DataFrame(content, columns=header_mapper[dataset_use])
 
