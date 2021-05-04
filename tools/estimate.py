@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 def get_value_estimators(
-    policy, contexts, actions, rewards, propensities, skip_rf=True
+    policy, contexts, actions, rewards, propensities, skip_nonlin=True
 ):
     """
     Args:
@@ -28,6 +28,7 @@ def get_value_estimators(
     dm = np.zeros((len(contexts), policy.num_actions))
     dm_iw = np.zeros((len(contexts), policy.num_actions))
     dm_rf = np.zeros((len(contexts), policy.num_actions))
+    dm_xg = np.zeros((len(contexts), policy.num_actions))
     for a in range(policy.num_actions):
         # linear regression fits
         lr = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(
@@ -43,7 +44,7 @@ def get_value_estimators(
         dm[:, a] = lr.predict(contexts)
         dm_iw[:, a] = lr_iw.predict(contexts)
 
-        if not skip_rf:
+        if not skip_nonlin:
             # random forest fit
             rf = RandomForestClassifier(
                 criterion="entropy", n_estimators=500, min_samples_leaf=2
@@ -52,6 +53,7 @@ def get_value_estimators(
 
             # add predicted rewards for particular action for all contexts
             dm_rf[:, a] = rf.predict(contexts)
+            
 
     # get the policy's probability distribution over each action conditioned on the context
     props_new = policy.get_action_distribution(contexts)
@@ -65,11 +67,11 @@ def get_value_estimators(
     )
     # est['dr_iw'] = np.mean((dm_iw*props_new).sum(axis=1) + weights*(rewards - dm_iw[np.arange(dm.shape[0]),actions]))
 
-    if not skip_rf:
+    if not skip_nonlin:
         est["dm_rf"] = np.mean((dm_rf * props_new).sum(axis=1))
         est["dr_rf"] = np.mean(
             (dm_rf * props_new).sum(axis=1)
-            + weights * (rewards - dm_rf[np.arange(dm.shape[0]), actions])
+            + weights * (rewards - dm_rf[np.arange(dm_rf.shape[0]), actions])
         )
 
     return est
