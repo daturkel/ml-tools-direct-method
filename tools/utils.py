@@ -146,12 +146,12 @@ def get_bandit(dataset_use):
     return contexts, full_rewards, best_actions
 
 
-def split_data(contexts, full_rewards, best_actions):
+def split_data(contexts, full_rewards, best_actions, rng):
     # ensure all actions are in training set by selecting one instance of each action first
     ind_ls = []
     for cat in best_actions.unique():
         filter_ = contexts.index[best_actions == cat]
-        ind = np.random.choice(filter_)
+        ind = rng.choice(filter_)
         ind_ls.append(ind)
 
     # get remaining indices from contexts list
@@ -161,7 +161,7 @@ def split_data(contexts, full_rewards, best_actions):
     mid = math.ceil(len(contexts) / 2)
 
     # add more samples to training to sum up to roughly equal split of dataset
-    new_train_ind = random.sample(rem_inds, mid - len(ind_ls))
+    new_train_ind = list(rng.choice(rem_inds, mid - len(ind_ls), replace=False))
     train_ind = ind_ls + new_train_ind
 
     # get indices for test set

@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, RidgeCV
 from sklearn.ensemble import RandomForestClassifier
 
 
 def get_value_estimators(
-    policy, contexts, actions, rewards, propensities, skip_nonlin=True
+    policy, contexts, actions, rewards, propensities, skip_nonlin=True, log_cv=True
 ):
     """
     Args:
@@ -27,6 +27,7 @@ def get_value_estimators(
     # direct method
     dm = np.zeros((len(contexts), policy.num_actions))
     dm_iw = np.zeros((len(contexts), policy.num_actions))
+    dm_log = np.zeros((len(contexts), policy.num_actions))
     dm_rf = np.zeros((len(contexts), policy.num_actions))
     dm_xg = np.zeros((len(contexts), policy.num_actions))
     for a in range(policy.num_actions):
@@ -44,6 +45,19 @@ def get_value_estimators(
         dm[:, a] = lr.predict(contexts)
         dm_iw[:, a] = lr_iw.predict(contexts)
 
+        try:
+            if (rewards[actions == a].sum() < 20) or not log_cv:
+                log_reg = LogisticRegression(max_iter=1000).fit(
+                    contexts[actions == a], rewards[actions == a]
+                )
+            else:
+                log_reg = LogisticRegressionCV(Cs=4, max_iter=1000).fit(
+                    contexts[actions == a], rewards[actions == a]
+                )
+            dm_log[:, a] = log_reg.predict_proba(contexts)[:, 1]
+        except ValueError:
+            pass
+
         if not skip_nonlin:
             # random forest fit
             rf = RandomForestClassifier(
@@ -53,13 +67,13 @@ def get_value_estimators(
 
             # add predicted rewards for particular action for all contexts
             dm_rf[:, a] = rf.predict(contexts)
-            
 
     # get the policy's probability distribution over each action conditioned on the context
     props_new = policy.get_action_distribution(contexts)
 
     est["dm"] = np.mean((dm * props_new).sum(axis=1))
     est["dm_iw"] = np.mean((dm_iw * props_new).sum(axis=1))
+    est["dm_log"] = np.mean((dm_log * props_new).sum(axis=1))
 
     est["dr"] = np.mean(
         (dm * props_new).sum(axis=1)
