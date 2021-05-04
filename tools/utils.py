@@ -115,6 +115,8 @@ def data_reader(dataset_use):
                         if item
                     ]
                 )
+        if not Path("data").exists():
+            Path("data").mkdir()
         with open(f"data/{dataset_use}", "b") as f:
             pickle.dump(f)
     return content
