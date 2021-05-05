@@ -96,10 +96,10 @@ def data_reader(dataset_use):
 
     file_name = "https://archive.ics.uci.edu/ml/machine-learning-databases/{df}/{df}"
 
-    if Path(f"data/{dataset_use}").exists():
-        with open(f"data/{dataset_use}","b") as f:
-            content = pickle.load(f)
-    else:
+    try:
+        content = pd.read_csv(f"data/{dataset_use}.csv")
+        print(f"Loaded {dataset_use} from local csv")
+    except FileNotFoundError:
         content = []
         for suf in suffices[dataset_use]:
             data = file_name.format(df=dataset_use) + suf
@@ -117,8 +117,9 @@ def data_reader(dataset_use):
                 )
         if not Path("data").exists():
             Path("data").mkdir()
-        with open(f"data/{dataset_use}", "b") as f:
-            pickle.dump(f)
+        content = pd.DataFrame(content, columns=header_mapper[dataset_use])
+        content.to_csv(f"data/{dataset_use}.csv")
+        print(f"Loaded {dataset_use} from web")
     return content
 
 
@@ -127,15 +128,7 @@ def get_bandit(dataset_use):
     This function loads in a multiclass classification dataset and converts to a fully observed bandit dataset.
 
     """
-    # set location of file
-        with open(f"data/{dataset_use}", "r") as f:
-            content = f.readlines()
-    else:
-        content = data_reader(dataset_use)
-        with open(f"data/{dataset_use}", "w") as f:
-            f.writelines(content)
-
-    df = pd.DataFrame(content, columns=header_mapper[dataset_use])
+    df = data_reader(dataset_use)
 
     # remove non-numerical columns from contexts
     col_list = ["class"]
