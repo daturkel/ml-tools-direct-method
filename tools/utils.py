@@ -1,4 +1,6 @@
 import math
+from pathlib import Path
+import pickle
 import random
 import re
 from urllib.request import urlopen
@@ -94,22 +96,30 @@ def data_reader(dataset_use):
 
     file_name = "https://archive.ics.uci.edu/ml/machine-learning-databases/{df}/{df}"
 
-    content = []
-    for suf in suffices[dataset_use]:
-        data = file_name.format(df=dataset_use) + suf
+    try:
+        content = pd.read_csv(f"data/{dataset_use}.csv")
+        print(f"Loaded {dataset_use} from local csv")
+    except FileNotFoundError:
+        content = []
+        for suf in suffices[dataset_use]:
+            data = file_name.format(df=dataset_use) + suf
 
-        req = urlopen(data)
-        for line in req.readlines():
-            content.append(
-                [
-                    item
-                    for item in re.sub("\s+", ",", line.decode("utf-8").rstrip()).split(
-                        ","
-                    )
-                    if item
-                ]
-            )
-
+            req = urlopen(data)
+            for line in req.readlines():
+                content.append(
+                    [
+                        item
+                        for item in re.sub("\s+", ",", line.decode("utf-8").rstrip()).split(
+                            ","
+                        )
+                        if item
+                    ]
+                )
+        if not Path("data").exists():
+            Path("data").mkdir()
+        content = pd.DataFrame(content, columns=header_mapper[dataset_use])
+        content.to_csv(f"data/{dataset_use}.csv")
+        print(f"Loaded {dataset_use} from web")
     return content
 
 
@@ -118,10 +128,7 @@ def get_bandit(dataset_use):
     This function loads in a multiclass classification dataset and converts to a fully observed bandit dataset.
 
     """
-    # set location of file
-    content = data_reader(dataset_use)
-
-    df = pd.DataFrame(content, columns=header_mapper[dataset_use])
+    df = data_reader(dataset_use)
 
     # remove non-numerical columns from contexts
     col_list = ["class"]
@@ -146,12 +153,12 @@ def get_bandit(dataset_use):
     return contexts, full_rewards, best_actions
 
 
-def split_data(contexts, full_rewards, best_actions):
+def split_data(contexts, full_rewards, best_actions, rng):
     # ensure all actions are in training set by selecting one instance of each action first
     ind_ls = []
     for cat in best_actions.unique():
         filter_ = contexts.index[best_actions == cat]
-        ind = np.random.choice(filter_)
+        ind = rng.choice(filter_)
         ind_ls.append(ind)
 
     # get remaining indices from contexts list
@@ -161,7 +168,7 @@ def split_data(contexts, full_rewards, best_actions):
     mid = math.ceil(len(contexts) / 2)
 
     # add more samples to training to sum up to roughly equal split of dataset
-    new_train_ind = random.sample(rem_inds, mid - len(ind_ls))
+    new_train_ind = list(rng.choice(rem_inds, mid - len(ind_ls), replace=False))
     train_ind = ind_ls + new_train_ind
 
     # get indices for test set
