@@ -62,7 +62,7 @@ def get_value_estimators(
         if not skip_nonlin:
             # random forest fit
             rf = RandomForestClassifier(
-                criterion="entropy", n_estimators=500, min_samples_leaf=2
+                criterion="entropy", n_estimators=100, min_samples_leaf=5
             )
             rf = rf.fit(contexts[actions == a], rewards[actions == a])
 
@@ -80,6 +80,10 @@ def get_value_estimators(
     est["dr"] = np.mean(
         (dm * props_new).sum(axis=1)
         + weights * (rewards - dm[np.arange(dm.shape[0]), actions])
+    )
+    est["dr_log"] = np.mean(
+        (dm_log * props_new).sum(axis=1)
+        + weights * (rewards - dm_log[np.arange(dm_log.shape[0]), actions])
     )
     # est['dr_iw'] = np.mean((dm_iw*props_new).sum(axis=1) + weights*(rewards - dm_iw[np.arange(dm.shape[0]),actions]))
 
