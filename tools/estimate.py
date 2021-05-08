@@ -5,7 +5,13 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 def get_value_estimators(
-    policy, contexts, actions, rewards, propensities, skip_nonlin=True
+    policy,
+    contexts,
+    actions,
+    rewards,
+    propensities,
+    skip_nonlin=True,
+    model_propensities=False,
 ):
     """
     Args:
@@ -15,12 +21,20 @@ def get_value_estimators(
         rewards (np.array): rewards received in bandit feedback
         propensities (np.array): the propensity for each action selected under the logging
             policy (which is not provided to this function)
+        model_propensities (bool): rather than using the supplied propensities, model them
+            with a multinomial logistic regression
     Returns:
         est (dict): keys are string describing the value estimator, values are the
         corresponding value estimates
     """
 
     est = {}
+    if model_propensities:
+        prop_model = LogisticRegression(multi_class="multinomial", max_iter=10000)
+        prop_model.fit(contexts, actions)
+        propensities = prop_model.predict_proba(contexts)[
+            np.arange(propensities.shape[0]), actions
+        ]
     weights = policy.get_action_propensities(contexts, actions) / propensities
     est["iw"] = np.sum(weights * rewards) / len(rewards)
 
@@ -50,10 +64,10 @@ def get_value_estimators(
                 contexts[actions == a], rewards[actions == a]
             )
             dm_log[:, a] = log_reg.predict_proba(contexts)[:, 1]
-            log_reg_iw= LogisticRegression(max_iter=2500).fit(
+            log_reg_iw = LogisticRegression(max_iter=2500).fit(
                 contexts[actions == a],
                 rewards[actions == a],
-                sample_weight=weights[actions==a]
+                sample_weight=weights[actions == a],
             )
             dm_log_iw[:, a] = log_reg_iw.predict_proba(contexts)[:, 1]
         except ValueError:

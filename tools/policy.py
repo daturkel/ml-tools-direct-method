@@ -113,3 +113,32 @@ class UniformPolicy(Policy):
     def get_action_distribution(self, X):
         # define pdf as uniform distr
         return np.array([[1.0 / self.num_actions] * self.num_actions] * X.shape[0])
+
+
+class NonuniformPolicy(Policy):
+    """
+    NonuniformPolicy randomly selects an action from a static nonuniform distribution.
+    """
+
+    def __init__(self, num_actions=2, rng=np.random.default_rng()):
+        self.num_actions = num_actions
+        weights = rng.integers(5, 15, size=self.num_actions)
+        self.weights = weights / weights.sum()
+
+    def get_action_distribution(self, X):
+        return np.array([self.weights] * X.shape[0])
+
+
+class CorrelatedPolicy(Policy):
+    """
+    Policy which randomly selects an action with weights that are a function of the covariates.
+    """
+
+    def __init__(self, num_actions=2, num_features=10, rng=np.random.default_rng):
+        self.num_actions = num_actions
+        self.num_features = num_features
+        self.weights = rng.integers(5, 15, size=(self.num_features, self.num_actions))
+
+    def get_action_distribution(self, X):
+        tmp = X @ self.weights
+        return tmp / tmp.sum(axis=1)[:, np.newaxis]
